@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset='utf-8' />
+    <title>Display a map</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <!-- Mapbox -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet">
+
+    <!-- Slider -->	
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.5.0/nouislider.min.css" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.5.0/nouislider.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        #yearRangeSlider {
+            /* Adjust width, height, or other styles as needed */
+            width: 90%;
+            top: 30px;
+            left: 50px;
+            right: 50px;
+            color: white;
+        }
+
+        #yearRangeContainer {
+            /* For overlaying on the map */
+            position: absolute;
+            top: 30px;
+            left: 50px;
+            right: 50px;
+            z-index: 1;
+        }
+
+        #yearMinLabel {
+            font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: white;
+        }
+        #yearMaxLabel {
+            font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: white;
+        }
+        /* Full noUiSlider color customization */
+        .noUi-target {
+            background-color: #e0e0e0; /* Track background */
+        }
+
+        .noUi-connect {
+            background-color: White; /* Selected range bar */
+        }
+
+        .noUi-handle {
+            background-color: Blue; /* Handle color */
+            border: 2px solid #1976d2; /* Handle border color */
+        }
+
+        .noUi-handle:hover {
+            background-color: #42a5f5;
+        }
+
+        .noUi-handle:active {
+            background-color: #1e88e5;
+        }
+
+        .noUi-tooltip {
+            background-color: White;
+            color: Black;
+            font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+            font-weight: bold;
+            border-radius: 4px;
+        }
+
+        .mapboxgl-popup {
+        max-width: 800px;
+        font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+        }
+
+    </style>
+<div>
+    <label for="yearRange">Filter by Year:</label>
+    <div id="yearRangeSlider"></div>
+    <span id="yearMinLabel">1963</span> - <span id="yearMaxLabel">2009</span>
+</div>
+<div id="map" style="width: 100%;"></div>
+
+<script>
+    mapboxgl.accessToken = 'pk.eyJ1IjoiamFtZXMtbWNrZW56aWUtYXNsIiwiYSI6ImNsaHBtYXo1aDA4MWczZ281bXJhbnc0dGMifQ.8pxJxAy6HV0CQfuibaIFmw';
+    const map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/satellite-streets-v12',
+        center: [-185.555419, -40.693557],
+        zoom: 5.5
+    });
+
+    map.on('load', () => {
+        // Load the GeoJSON data
+        map.addSource('my-data', {
+            type: 'geojson',
+            data: './Data/HistoricNegIndex.geojson'
+        });
+
+        // Add the layer with a basic circle style
+        map.addLayer({
+            id: 'my-layer',
+            type: 'circle',
+            source: 'my-data',
+            paint: {
+				'circle-radius': [
+                                'interpolate',
+                                ['exponential', 1.10],
+                                ['zoom'],
+                                0,
+                                0.5,
+                                19,
+                                15
+                                ],
+                    'circle-color': 'red'
+            }
+        });
+
+        // Initialize noUiSlider
+        noUiSlider.create(yearRangeSlider, {
+        start: [1963, 2009], // Initial range values
+        connect: true,
+        range: {
+            min: 1963,
+            max: 2009
+        },
+        step: 1, // Step by 1 to ensure whole numbers
+        tooltips: [true, true],
+        format: {
+            to: function(value) {
+                return Math.round(value); // Round the value to the nearest integer
+            },
+            from: function(value) {
+                return Number(value); // Convert the string back to a number
+            }
+        }
+        });
+
+
+        // Filter the map layer based on slider values
+        yearRangeSlider.noUiSlider.on('update', function(values) {
+            const yearMin = parseInt(values[0]);
+            const yearMax = parseInt(values[1]);
+
+            // Update the displayed year range
+            document.getElementById('yearMinLabel').innerText = yearMin;
+            document.getElementById('yearMaxLabel').innerText = yearMax;
+
+            // Apply a filter to show only features within the selected year range
+            // map.setFilter('my-layer', ['==', ['get', 'DB_YEAR'], 1993]);
+           map.setFilter('my-layer', [
+               'all',
+               ['>=', ['get', 'DB_YEAR'], yearMin],
+               ['<=', ['get', 'DB_YEAR'], yearMax]
+           ]);
+        });
+        // Popup interaction
+        map.on('click', 'my-layer', (e) => {
+            const coordinates = e.features[0].geometry.coordinates.slice();
+            const description = "<b>Capture Year: </b>"+e.features[0].properties.DB_YEAR+"</br>" +
+                                "<b>Survey Number: </b>"+e.features[0].properties.SN_NUMBER+"</br>" +
+                                "<b>Neg ID: </b>"+e.features[0].properties.DB_NEG_ID+"</br>" +
+                                "<b>Number Frames: </b>"+e.features[0].properties.DB_NO_FRAM+"</br>" +
+                                "<b>Colour/B&W: </b>"+e.features[0].properties.DB_NEG_TYP+"</br>" +
+                                "<b>Image Scale:</b> 1:"+e.features[0].properties.DB_NEG_SCA+"</br>" +
+                                "<b>Altitude: </b>"+e.features[0].properties.DB_ALTITUD+"</br>" + 
+                                "<b>Region: </b>"+e.features[0].properties.DB_REGION+"</br>" + 
+                                "<b>Notes: </b>"+e.features[0].properties.DB_REMARKS+"</br>"           
+            ;
+            const uniqueID = e.features[0].properties.SN_NUMBER +"_"+ e.features[0].properties.DB_NEG_ID+"_"+ e.features[0].properties.DB_NEG_1ST+"_"+ e.features[0].properties.DB_NEG_LAS;
+
+            // Create popup content with a copy button
+            const popupContent = document.createElement('div');
+            popupContent.innerHTML = description;
+
+            const copyButton = document.createElement('button');
+            copyButton.innerText = 'Copy Reference';
+            copyButton.style.display = 'block';
+            copyButton.style.margin = '0 auto';
+            copyButton.addEventListener('click', () => {
+                copyToClipboard(uniqueID);
+                alert('Content copied to clipboard!');
+            });
+
+            popupContent.appendChild(copyButton);
+
+            // Adjust for coordinate wrapping
+            while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+            }
+
+            // Display popup
+            new mapboxgl.Popup()
+                .setLngLat(coordinates)
+                .setDOMContent(popupContent)
+                .addTo(map);
+        });
+
+        // Copy to clipboard function
+        function copyToClipboard(text) {
+            const dummyInput = document.createElement('textarea');
+            dummyInput.value = text;
+            document.body.appendChild(dummyInput);
+            dummyInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(dummyInput);
+        }
+
+        // Cursor style change on layer hover
+        map.on('mouseenter', 'my-layer', () => {
+            map.getCanvas().style.cursor = 'pointer';
+        });
+        
+        map.on('mouseleave', 'my-layer', () => {
+            map.getCanvas().style.cursor = '';
+        });
+        
+    });
+</script>
+</body>
+
+</html>
