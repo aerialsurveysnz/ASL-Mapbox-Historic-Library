@@ -101,7 +101,7 @@
         // Load the GeoJSON data
         map.addSource('my-data', {
             type: 'geojson',
-            data: './Data/HistoricNegIndex.geojson'
+            data: 'Data/HistoricNegIndex.geojson'
         });
 
         // Add the layer with a basic circle style
@@ -174,7 +174,7 @@
                                 "<b>Region: </b>"+e.features[0].properties.DB_REGION+"</br>" + 
                                 "<b>Notes: </b>"+e.features[0].properties.DB_REMARKS+"</br>"           
             ;
-            const uniqueID = e.features[0].properties.SN_NUMBER +"_"+ e.features[0].properties.DB_NEG_ID+"_"+ e.features[0].properties.DB_NEG_1ST+"_"+ e.features[0].properties.DB_NEG_LAS;
+            const uniqueID = e.features[0].properties.SN_NUMBER +"_NEGID-"+ e.features[0].properties.DB_NEG_ID+"_1STNEG-"+ e.features[0].properties.DB_NEG_1ST+"_LASTNEG-"+ e.features[0].properties.DB_NEG_LAS;
 
             // Create popup content with a copy button
             const popupContent = document.createElement('div');
